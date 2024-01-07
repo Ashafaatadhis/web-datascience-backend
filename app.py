@@ -6,13 +6,16 @@ import pickle
 import pandas as pd
 import asyncio
 from pyppeteer import launch
- 
+import time
+import random
+import concurrent.futures
 
 
 
 
 app = Flask(__name__)
-cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+cors = CORS(app, resources={r"/api/*"}, origins="*")
+# cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # terlalu berat
 # anime = pickle.load(open("./movies_list.pkl", "rb"))
@@ -32,6 +35,64 @@ def get_data():
     except:
         return GetDto.getDto([], False), 500
     # return jsonify({"data": json.loads(anime[awal:akhir].to_json(orient = 'records'))})
+
+@app.route('/api/favorite', methods=["post"])
+def get_data_by_title():
+    s = request.json["anime"]
+    # Load your pickle file here
+    anime = pickle.load(open("./movies_list.pkl", "rb"))
+    try:
+        res = list()
+        for t in s:
+            d = json.loads(anime[anime["Name"] == t].to_json(orient = 'records'))[0]
+            print("inii", d)
+            res.append(d)
+
+        return GetDto.getDto(res, True), 200
+    except:
+        return GetDto.getDto([], False), 500
+    # return jsonify({"data": json.loads(anime[awal:akhir].to_json(orient = 'records'))})
+
+@app.route("/api/favorites", methods=["POST"])
+def get_data_favorites():
+ 
+    page = request.args.get("page") or 1
+    awal =  int(page)*10 - 10
+    akhir = int(page)*10
+    print(request.json)
+
+ 
+
+    result = pd.DataFrame(columns=['anime_id', 'Name', 'English name', 'Other name', 'Score', 'Genres',
+                                'Synopsis', 'Type', 'Episodes', 'Aired', 'Premiered', 'Status',
+                                'Producers', 'Licensors', 'Studios', 'Source', 'Duration', 'Rating',
+                                'Rank', 'Popularity', 'Favorites', 'Scored By', 'Members', 'Image URL'])  # Buat DataFrame kosong
+
+    # Using ThreadPoolExecutor for parallel processing
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit tasks and capture the futures
+        if len(request.json["anime"]) > 2:
+           
+            futures = [executor.submit(favorites, title) for title in random.sample(request.json["anime"], 2)]
+        else:
+            futures = [executor.submit(favorites, title) for title in request.json["anime"]]
+      
+        all_results = []
+        # Collect the results as they are completed
+        for future in concurrent.futures.as_completed(futures):
+            result_list = future.result()
+            if not result_list.empty:              
+                all_results.append(result_list)
+    result = pd.concat(all_results, ignore_index=True)
+    print(result)
+    print(result.to_json(orient="records"))
+    # try:
+    #     d = json.loads(p[awal:akhir].to_json(orient="records"))
+    # return GetDto.getDto([], True), 200
+    return GetDto.getDto(json.loads(result.to_json(orient="records")), True), 200
+    # except Exception as e:
+    #     print(e)
+    #     return GetDto.getDto([], False), 500
 
 @app.route('/api/get/<name>')
 def get_data_detail(name):
@@ -109,7 +170,7 @@ async def get_stream(url):
     
         await page.click("#play-asu")
         await page.waitForSelector('#select-mirror-container select#mirrorList')
-        await page.select('select#mirrorList', 'v720p,krakenfiles')
+        await page.select('select#mirrorList', 'blog,mirror')
          
         await page.waitForFunction('document.getElementById("iframedc").src != "about:blank"')
         
@@ -222,8 +283,31 @@ def recommend(title):
     # print("ini", result)
     return result
 
+def favorites(title):
+    result = pd.DataFrame(columns=['anime_id', 'Name', 'English name', 'Other name', 'Score', 'Genres', 
+    'Synopsis', 'Type', 'Episodes', 'Aired', 'Premiered', 'Status',      
+    'Producers', 'Licensors', 'Studios', 'Source', 'Duration', 'Rating', 
+    'Rank', 'Popularity', 'Favorites', 'Scored By', 'Members', 'Image URL'])  # Buat DataFrame kosong
+
+    try:
+    
+        anime = pickle.load(open("./movies_list.pkl", "rb"))
+        similarity = pickle.load(open("./similarity.pkl", "rb"))
+        idx = anime[anime["Name"] == title].index[0]
+        sm = sorted(enumerate(list(similarity[idx])), reverse=True, key=lambda vector: vector[1])
+       
+ 
+        # # Mengisi DataFrame dengan hasil rekomendasi
+        result_list = list()
+        for i in sm[:5]:
+            result.loc[len(result)] = anime.iloc[i[0]]
+        
+        return result
+    except Exception as e:
+        print(e)
+
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=80)
  
