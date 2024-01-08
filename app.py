@@ -80,14 +80,14 @@ def get_data_favorites():
         all_results = []
         # Collect the results as they are completed
         for future in concurrent.futures.as_completed(futures):
-            result_list = future.result()
-            # print(result_list)
-            if result_list is not None:
-                if not result_list.empty:              
-                    all_results.append(result_list)
-    result = pd.concat(all_results, ignore_index=True)
-    print(result)
-    print(result.to_json(orient="records"))
+            result_list =   future.result()
+             
+            # if result_list is not None:
+            # if result_list is not None and result_list.bool:              
+            #     all_results.append(result_list)
+    # result = pd.concat(all_results, ignore_index=True)
+   
+  
     # try:
     #     d = json.loads(p[awal:akhir].to_json(orient="records"))
     # return GetDto.getDto([], True), 200
@@ -295,18 +295,18 @@ def favorites(title):
     
         anime = pickle.load(open("./movies_list.pkl", "rb"))
         similarity = pickle.load(open("./similarity.pkl", "rb"))
-        idx = anime[anime["Name"] == title].index[0]
+        idx = anime[anime["Name"] == title]
         sm = sorted(enumerate(list(similarity[idx])), reverse=True, key=lambda vector: vector[1])
-       
- 
+        print("ini sm:", sm)
         # # Mengisi DataFrame dengan hasil rekomendasi
-        result_list = list()
+        # result_list = list()
         for i in sm[:5]:
             result.loc[len(result)] = anime.iloc[i[0]]
         
         return result
     except Exception as e:
-        print(e)
+        print(e, "ERROR")
+        print("WOII")
 
 
 
