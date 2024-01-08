@@ -81,8 +81,10 @@ def get_data_favorites():
         # Collect the results as they are completed
         for future in concurrent.futures.as_completed(futures):
             result_list = future.result()
-            if not result_list.empty:              
-                all_results.append(result_list)
+            # print(result_list)
+            if result_list is not None:
+                if not result_list.empty:              
+                    all_results.append(result_list)
     result = pd.concat(all_results, ignore_index=True)
     print(result)
     print(result.to_json(orient="records"))
